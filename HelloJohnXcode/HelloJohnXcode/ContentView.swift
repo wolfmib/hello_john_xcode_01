@@ -1,10 +1,32 @@
+
+// HelloJohnXcode :  used GogoleDrive & Voice & LLM
+// Part 1 InitApp & GogoleDrive
 import SwiftUI
 import GoogleSignIn
 import GoogleSignInSwift
 
+//voice part2
+import Speech
+import AVFoundation
+
 struct ContentView: View {
+    
+    // GoogleDriveApi
     @State private var user: GIDGoogleUser? = nil
     @State private var message = "Not signed in"
+    
+    // XcodeVoice
+    @State private var isRecording = false
+    @State private var recognizedText = ""
+    let speechRecognizer = SFSpeechRecognizer()
+    let audioEngine = AVAudioEngine()
+    let speechSynthesizer = AVSpeechSynthesizer()
+    // XcodeVoice-Reply-Display-Times-Cnts
+    @State private var countdown: Int? = nil
+    @State private var countdownTimer: Timer? = nil
+    @State private var isProcessing = false
+    @State private var finalText = ""
+
 
     var body: some View {
         VStack(spacing: 20) {
@@ -19,12 +41,38 @@ struct ContentView: View {
                         targetFiles: ["project__meta.json", "project__actions.json"]
                     )
                 }
+                
+                Button(isRecording ? "🛑 Stop Recording" : "🎙 Start Recording") {
+                    if isRecording {
+                        stopRecording()
+                    } else {
+                        startRecording()
+                    }
+                }
+                Text("📝 Last recognized: \(recognizedText)")
+                .padding()
+
+                
+                if isProcessing {
+                    Text("⏳ Finalizing speech...")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+                
 
                 Button("🚪 Sign Out") {
                     GIDSignIn.sharedInstance.signOut()
                     self.user = nil
                     self.message = "Signed out"
                 }
+                
+                
+                if let secondsLeft = countdown {
+                    Text("⏳ Speaking in \(secondsLeft)...")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+
 
             } else {
                 GoogleSignInButton {
@@ -163,4 +211,95 @@ struct ContentView: View {
             print("❌ Save error: \(error.localizedDescription)")
         }
     }
+    
+    
+    func startRecording() {
+        SFSpeechRecognizer.requestAuthorization { authStatus in
+            guard authStatus == .authorized else {
+                print("❌ Speech recognition not authorized")
+                message = "Microphone access not granted"
+                return
+            }
+            
+           
+
+
+            let request = SFSpeechAudioBufferRecognitionRequest()
+            let inputNode = audioEngine.inputNode
+
+            request.shouldReportPartialResults = true
+            isRecording = true
+            recognizedText = ""
+
+            speechRecognizer?.recognitionTask(with: request) { result, error in
+                if let result = result {
+                    finalText = result.bestTranscription.formattedString
+                    recognizedText = finalText
+                }
+                
+                if error != nil || result?.isFinal == true {
+                    // Don't call stopRecording here anymore
+                }
+            }
+
+            let recordingFormat = inputNode.outputFormat(forBus: 0)
+            inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
+                request.append(buffer)
+            }
+
+            audioEngine.prepare()
+            try? audioEngine.start()
+            print("🎙 Recording started")
+        }
+    }
+
+    func stopRecording() {
+        audioEngine.stop()
+        audioEngine.inputNode.removeTap(onBus: 0)
+        isRecording = false
+        isProcessing = true
+        recognizedText = "🧠 Processing..."
+        print("🛑 Recording stopped")
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.startCountdown(seconds: 5) {
+                isProcessing = false
+                recognizedText = finalText  // 👈 restore proper display text
+                speakText(finalText)
+            }
+        }
+    }
+
+
+    func speakText(_ text: String) {
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        utterance.rate = 0.4 // << make it slower
+        speechSynthesizer.speak(utterance)
+        print("🔊 Speaking: \(text)")
+    }
+    
+    
+    func startCountdown(seconds: Int, onComplete: @escaping () -> Void) {
+        countdown = seconds
+        countdownTimer?.invalidate()
+        
+        countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+            DispatchQueue.main.async {  // 🔁 Force UI update
+                if let current = countdown, current > 0 {
+                    print("⏳ Countdown: \(current)")
+                    countdown = current - 1
+                } else {
+                    timer.invalidate()
+                    countdownTimer = nil
+                    countdown = nil
+                    onComplete()
+                }
+            }
+        }
+    }
+
 }
+
+
+

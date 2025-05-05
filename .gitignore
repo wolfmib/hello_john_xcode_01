@@ -1,0 +1,21 @@
+
+# Xcode workspace and user-specific files
+*.xcuserdatad
+*.xcuserdata
+
+# Firebase / GoogleService info
+HelloJohnXcode/HelloJohnXcode/GoogleService-Info.plist
+
+
+# Ignore sensitive config
+HelloJohnXcode/HelloJohnXcode/Info.plist
+HelloJohnXcode/HelloJohnXcode/GoogleService-Info.plist
+
+
+
+.DS_Store
+*.xcworkspace
+*.xcuserstate
+google-credentials.json
+openai_token.txt
+

@@ -17,9 +17,20 @@ struct HelloJohnXcodeApp: App {
         }
     }
 
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            TabView {
+                ContentView()
+                    .tabItem {
+                        Label("Main", systemImage: "house")
+                    }
+
+                TabOutputView()
+                    .tabItem {
+                        Label("Output", systemImage: "doc.plaintext")
+                    }
+            }
         }
     }
 }

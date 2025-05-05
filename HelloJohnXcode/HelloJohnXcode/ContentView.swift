@@ -26,6 +26,11 @@ struct ContentView: View {
     @State private var countdownTimer: Timer? = nil
     @State private var isProcessing = false
     @State private var finalText = ""
+    //open-api
+    @State private var openAITokenPreview: String = "🔍 Token not loaded"
+    @State private var testResult: String = ""
+
+
 
 
     var body: some View {
@@ -34,11 +39,45 @@ struct ContentView: View {
                 .padding()
 
             if let user = user {
+                
+
+                Button("🧪 Test OpenAI") {
+                    let input = "Say hi to John, now in French"
+                    let systemPrompt = ""
+                    let extraInfo = ""
+
+                    // 👇 Force reload right before use
+                    if let token = loadCloseApiToken() {
+                        openAITokenPreview = "🔑 Token Preview: \(token.prefix(12))..."
+                        print("✅ Reloaded token: \(token.prefix(12))")
+                        
+
+                        testOpenAI(input: input, systemPrompt: systemPrompt, extraInfo: extraInfo) { response in
+                            print("🧪 Sending request to OpenAI...")
+                            print("🔑 Using token: \(token.prefix(8))...")
+                            print("🧪 TestOpenAI Response:\n\(response)")
+                            DispatchQueue.main.async {
+                                self.testResult = response
+                            }
+                        }
+                              
+                    } else {
+                        testResult = "❌ Token not found on click"
+                    }
+                }
+                Text("🧠 OpenAI Response:\n\(testResult)")
+                .font(.body)
+                .foregroundColor(.green)
+                .padding(.horizontal)
+           
+
+                
+                
                 Button("✅ Fetch Drive JSON") {
                     listDriveFiles(
                         user: user,
                         folderID: "1sSqu2eQQydKjy-WIZzXfluuk6EoTfAE4",
-                        targetFiles: ["project__meta.json", "project__actions.json"]
+                        targetFiles: ["project__meta.json", "project__actions.json","JA_ENV.json"]
                     )
                 }
                 
@@ -72,6 +111,22 @@ struct ContentView: View {
                         .font(.caption)
                         .foregroundColor(.gray)
                 }
+                
+                //open-ai
+                Text(openAITokenPreview)
+                    .font(.caption)
+                    .foregroundColor(.blue)
+
+
+                Text("📁 Meta Preview:\n\(loadJSONPreview(fileName: "project__meta.json"))")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                    .padding(.horizontal)
+
+                Text("📁 Action Preview:\n\(loadJSONPreview(fileName: "project__actions.json"))")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                    .padding(.horizontal)
 
 
             } else {
@@ -83,6 +138,16 @@ struct ContentView: View {
         }
         .onAppear {
             restorePreviousSignIn()
+            
+            // 🔁 Listen for JA_ENV update after download
+            NotificationCenter.default.addObserver(forName: .didUpdateJAEnv, object: nil, queue: .main) { _ in
+                if let token = loadCloseApiToken() {
+                    openAITokenPreview = "🔑 Token Preview: \(token.prefix(12))..."
+                } else {
+                    openAITokenPreview = "❌ Failed to load token after download"
+                }
+            }
+            
         }
     }
 
@@ -194,6 +259,14 @@ struct ContentView: View {
                     print("📥 \(fileName) content:\n\(content)")
                 }
                 saveToDocuments(data: data, fileName: fileName)
+                // 👇 Fix here: notify main view AFTER save
+                if fileName == "JA_ENV.json" {
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(name: .didUpdateJAEnv, object: nil)
+                        print("I am fucking confimred  dispatchque main sync for the JA_ENV.json")
+                    }
+                }
+
             } else {
                 print("❌ Failed to download \(fileName): \(error?.localizedDescription ?? "unknown")")
             }
@@ -298,8 +371,123 @@ struct ContentView: View {
             }
         }
     }
+    
+    func loadJSONPreview(fileName: String) -> String {
+        let fileURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(fileName)
+        
+        do {
+            let content = try String(contentsOf: fileURL, encoding: .utf8)
+            let lines = content.components(separatedBy: .newlines)
+            return lines.prefix(3).joined(separator: "\n") // show only first 3 lines
+        } catch {
+            return "❌ Failed to load \(fileName): \(error.localizedDescription)"
+        }
+    }
+    
+    
+
 
 }
 
+
+//openai
+func loadCloseApiToken() -> String? {
+    let fileURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("JA_ENV.json")
+
+    do {
+        let data = try Data(contentsOf: fileURL)
+        if let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+            for item in jsonArray {
+                if let key = item["key"] as? String,
+                   key == "CLOSE_API_TOKEN",
+                   let value = item["value"] as? String {
+                    print("✅ Found token: \(value.prefix(12))...")
+                    return value
+                }
+            }
+        }
+    } catch {
+        print("❌ Token load error: \(error)")
+    }
+
+    return nil
+}
+
+
+
+
+
+
+
+
+func testOpenAI(input: String, systemPrompt: String = "", extraInfo: String = "", temperature: Double = 0.7, completion: @escaping (String) -> Void) {
+    guard let token = loadCloseApiToken() else {
+        completion("❌ Token not loaded")
+        return
+    }
+
+    let url = URL(string: "https://api.openai.com/v1/chat/completions")!
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+    let messages: [[String: Any]] = [
+        ["role": "system", "content": systemPrompt],
+        ["role": "user", "content": "\(input)\n\nContext:\n\(extraInfo)"]
+    ]
+
+    let body: [String: Any] = [
+        "model": "gpt-3.5-turbo",
+        "temperature": temperature,
+        "messages": messages
+    ]
+
+    do {
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+    } catch {
+        completion("❌ Failed to serialize request body: \(error.localizedDescription)")
+        return
+    }
+
+    URLSession.shared.dataTask(with: request) { data, response, error in
+        if let error = error {
+            completion("❌ API Error: \(error.localizedDescription)")
+            return
+        }
+
+        guard let data = data else {
+            completion("❌ No data received from API")
+            return
+        }
+
+        // Attempt to parse the response
+        do {
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let choices = json["choices"] as? [[String: Any]],
+               let message = choices.first?["message"] as? [String: Any],
+               let content = message["content"] as? String {
+                completion("✅ Response:\n" + content)
+            } else {
+                // Log the raw response for debugging
+                let rawResponse = String(data: data, encoding: .utf8) ?? "Unable to decode response"
+                print("⚠️ Unexpected API format. Raw response: \(rawResponse)")
+                completion("⚠️ Unexpected API format")
+            }
+        } catch {
+            let rawResponse = String(data: data, encoding: .utf8) ?? "Unable to decode response"
+            print("❌ Failed to parse JSON. Error: \(error.localizedDescription). Raw response: \(rawResponse)")
+            completion("❌ Failed to parse API response")
+        }
+    }.resume()
+}
+
+
+
+extension Notification.Name {
+    static let didUpdateJAEnv = Notification.Name("didUpdateJAEnv")
+}
 
 

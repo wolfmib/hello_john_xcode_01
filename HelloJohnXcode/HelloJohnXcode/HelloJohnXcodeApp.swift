@@ -30,6 +30,11 @@ struct HelloJohnXcodeApp: App {
                     .tabItem {
                         Label("Output", systemImage: "doc.plaintext")
                     }
+                
+                TabLLMView()
+                    .tabItem {
+                        Label("LLM", systemImage: "brain.head.profile")
+                    }
             }
         }
     }

@@ -372,18 +372,7 @@ struct ContentView: View {
         }
     }
     
-    func loadJSONPreview(fileName: String) -> String {
-        let fileURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent(fileName)
-        
-        do {
-            let content = try String(contentsOf: fileURL, encoding: .utf8)
-            let lines = content.components(separatedBy: .newlines)
-            return lines.prefix(3).joined(separator: "\n") // show only first 3 lines
-        } catch {
-            return "❌ Failed to load \(fileName): \(error.localizedDescription)"
-        }
-    }
+
     
     
 
@@ -421,68 +410,6 @@ func loadCloseApiToken() -> String? {
 
 
 
-
-func testOpenAI(input: String, systemPrompt: String = "", extraInfo: String = "", temperature: Double = 0.7, completion: @escaping (String) -> Void) {
-    guard let token = loadCloseApiToken() else {
-        completion("❌ Token not loaded")
-        return
-    }
-
-    let url = URL(string: "https://api.openai.com/v1/chat/completions")!
-    var request = URLRequest(url: url)
-    request.httpMethod = "POST"
-    request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-    let messages: [[String: Any]] = [
-        ["role": "system", "content": systemPrompt],
-        ["role": "user", "content": "\(input)\n\nContext:\n\(extraInfo)"]
-    ]
-
-    let body: [String: Any] = [
-        "model": "gpt-3.5-turbo",
-        "temperature": temperature,
-        "messages": messages
-    ]
-
-    do {
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-    } catch {
-        completion("❌ Failed to serialize request body: \(error.localizedDescription)")
-        return
-    }
-
-    URLSession.shared.dataTask(with: request) { data, response, error in
-        if let error = error {
-            completion("❌ API Error: \(error.localizedDescription)")
-            return
-        }
-
-        guard let data = data else {
-            completion("❌ No data received from API")
-            return
-        }
-
-        // Attempt to parse the response
-        do {
-            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let choices = json["choices"] as? [[String: Any]],
-               let message = choices.first?["message"] as? [String: Any],
-               let content = message["content"] as? String {
-                completion("✅ Response:\n" + content)
-            } else {
-                // Log the raw response for debugging
-                let rawResponse = String(data: data, encoding: .utf8) ?? "Unable to decode response"
-                print("⚠️ Unexpected API format. Raw response: \(rawResponse)")
-                completion("⚠️ Unexpected API format")
-            }
-        } catch {
-            let rawResponse = String(data: data, encoding: .utf8) ?? "Unable to decode response"
-            print("❌ Failed to parse JSON. Error: \(error.localizedDescription). Raw response: \(rawResponse)")
-            completion("❌ Failed to parse API response")
-        }
-    }.resume()
-}
 
 
 

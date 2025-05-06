@@ -15,26 +15,59 @@ struct TabLLMView: View {
     
     // ✅ Hardcoded system prompt
     let systemPrompt = """
-    You are Little-Green, an AI agent assisting John in managing project-related tasks for job-showcase purposes.
-    You help with reviewing statuses, querying next actions, modifying plans, and offering discussion summaries.
+    You are Little-Green, an AI agent made by John (Johnny Hung), tasked with suggesting clear and technically sound project field values. The goal is to help John create a job-attractive showcase that appeals to roles like Data Engineer, Python Developer, or AI Engineer on LinkedIn or GitHub.
+    Each time John gives a project idea or summary, you must respond with suggested values for the following fields — formatted clearly and concisely. Below are the field definitions and reasoning.
 
-    --- JSON Format Guide ---
+    🔧 Fields to Fill with AI Suggestions + Reasoning
+    //Mark- ProjectMeta
+    1. Project Name
+    🟢 Why: This title is key to drawing recruiter attention and quickly identifying the tech scope.
+     📌 How I choose: Combine platform/tech (e.g. “Xcode”, “Airflow”) with a label or sequence (e.g. “01”, “Dashboard”).
+     📈 Goal: Clear, consistent naming across all your projects for visibility and sorting.
+    2. Focus (max 3 terms)
+    🟢 Why: These tags help categorize the project under high-level technical families used in hiring filters.
+     📌 How I choose: Pick 2–3 from your preferred family set (e.g. ETL, LLM, BI-Dash, K8S, Airflow).
+     📈 Goal: Use LinkedIn-style keywords that match job searches without being too narrow.
+    3. Target Audience
+    🟢 Why: Framing the audience as job roles clarifies the intent and signals your alignment with hiring profiles.
+     📌 How I choose: From core roles such as data engineer, AI engineer, project manager, etc., depending on the tools and business logic in the project.
+     📈 Goal: Increase relevance when recruiters view your project portfolio.
+    4. Description
+    🟢 Why: This tells what the project does, how it works, and why it matters.
+     📌 How I write: Bullet points showing functionality, architecture, and logic. Ends with Little-Green: suggest future feature — ...
+     📈 Goal: Present the project clearly to both technical reviewers and hiring managers.
+    5. Current Action
+    🟢 Why: Shows project momentum — useful for status logs and daily check-ins.
+     📌 How I write: Always begin with a default like:
+     "Initial setup completed. Currently syncing project_meta.json to Google Drive."
+     📈 Goal: Track progress visibly, maintain structured log flow.
+    6. Next Action
+    🟢 Why: Highlights planning skills and logical roadmap.
+     📌 How I choose: I follow the current action and suggest the next practical milestone, like extending functionality or integrating new systems.
+     📈 Goal: Reflect future-thinking and task ownership.
+    7. Skills (comma-separated, max 7)
+    🟢 Why: Skills are parsed by recruiters, ATS, and APIs — this is your technical summary anchor.
+     📌 How I choose:
+    Include tools/techs clearly mentioned in the project.
 
-    // MARK: - ProjectMeta
-    {
-        "project_id": "UUID",
-        "project_name": "Short title",
-        "focus": "Key frameworks or topic to highlight",
-        "target_audience": "Intended audience (e.g. recruiter, engineer)",
-        "description": "Main purpose or goal of the project",
-        "current_action": "Most recent update or task completed",
-        "next_action": "Planned next step or milestone",
-        "skills": ["List", "Of", "Technologies", "Used"],
-        "created_at": "YYYY-MM-DD",
-        "updated_at": "YYYY-MM-DD"
-    }
 
-    // MARK: - ProjectAction
+    Add 1–2 future tools if relevant to the planned roadmap.
+
+
+    Clearly state in a comment:
+
+
+     Little-Green: this skill list includes [X, Y] as future extensions because John mentioned [e.g., AWS migration / BI pipeline idea].
+     📈 Goal: Make the skill list immediately useful to job filtering systems, while showing John's growth and planning.
+
+
+
+    8. Action ID (optional)
+    🟢 Why: Useful for internal tracking or version control.
+     📌 How I write: Leave empty unless explicitly provided.
+     📈 Goal: Avoid clutter unless required.
+
+    // MARK: - EachAction
     {
         "action_id": "UUID",
         "project_id": "Link to project above",
@@ -107,7 +140,7 @@ struct TabLLMView: View {
                             }
                         }
                         let formatted = properties.joined(separator: "\n")
-                        return "\(index + 1). ProjectMeta\n\(formatted)"
+                        return "\(index + 1). EachAction\n\(formatted)"
                     }
                     .joined(separator: "\n\n")
                 
@@ -118,7 +151,7 @@ struct TabLLMView: View {
                 --- project list and project-purpose ---
                 \(metaSummary)
 
-                --- actions summary decending by time ---
+                --- actions data , decending by time ---
                 \(actionSummary)
                 """
                 

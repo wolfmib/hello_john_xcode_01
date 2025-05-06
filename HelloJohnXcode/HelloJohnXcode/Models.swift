@@ -111,7 +111,8 @@ func loadEnvToken() -> String {
 }
 
 
-func testOpenAI(input: String, systemPrompt: String = "", extraInfo: String = "", temperature: Double = 0.7, completion: @escaping (String) -> Void) {
+//Little Green use temparedu 0.3 to make the summary correct (less creativity)
+func testOpenAI(input: String, systemPrompt: String = "", extraInfo: String = "", temperature: Double = 0.3, completion: @escaping (String) -> Void) {
     guard let token = loadCloseApiToken() else {
         completion("❌ Token not loaded")
         return
@@ -129,7 +130,7 @@ func testOpenAI(input: String, systemPrompt: String = "", extraInfo: String = ""
     ]
 
     let body: [String: Any] = [
-        "model": "gpt-3.5-turbo",
+        "model": "gpt-4o",
         "temperature": temperature,
         "messages": messages
     ]
@@ -158,7 +159,7 @@ func testOpenAI(input: String, systemPrompt: String = "", extraInfo: String = ""
                let choices = json["choices"] as? [[String: Any]],
                let message = choices.first?["message"] as? [String: Any],
                let content = message["content"] as? String {
-                completion("✅ Response:\n" + content)
+                completion("\n" + content)
             } else {
                 // Log the raw response for debugging
                 let rawResponse = String(data: data, encoding: .utf8) ?? "Unable to decode response"
